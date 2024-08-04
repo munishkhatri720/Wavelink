@@ -162,6 +162,6 @@ class NodeSelectionStrategy(enum.Enum):
     prioritize_node_penalty: int
         Strategy that prioritizes nodes based on their load-balancing penalty.
     """
-    prioritize_total_players = 0
-    prioritize_total_playing = 1
-    prioritize_node_penalty = 2
+    TOTAL_PLAYERS = 0
+    TOTAL_PLAYING = 1
+    NODE_PENALTY  = 2

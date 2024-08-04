@@ -846,7 +846,7 @@ class Pool:
             cls.__node_selection_strategy = node_selection_strategy
             logger.info(f"Node selection strategy set to {node_selection_strategy.name}")
         else:
-            logger.warning(f"Falling back the node selection startegy to {NodeSelectionStrategy.prioritize_total_players.name}")    
+            logger.warning(f"Falling back to the default node selection strategy: {NodeSelectionStrategy.TOTAL_PLAYERS.name}")    
 
         return cls.__nodes
 
@@ -925,10 +925,10 @@ class Pool:
         if not nodes:
             raise InvalidNodeException("No nodes are currently assigned to the wavelink.Pool in a CONNECTED state.")
           
-        if cls.__node_selection_strategy == NodeSelectionStrategy.prioritize_total_playing:
+        if cls.__node_selection_strategy == NodeSelectionStrategy.TOTAL_PLAYING:
             key : Callable[[Node] , Union[int , float]]  = lambda n: (n._stats.playing if n._stats else len(n.players))
         
-        elif cls.__node_selection_strategy == NodeSelectionStrategy.prioritize_node_penalty:
+        elif cls.__node_selection_strategy == NodeSelectionStrategy.NODE_PENALTY:
             key : Callable[[Node], Union[int , float]] = lambda n: n.penalty
         
         else:
@@ -1030,6 +1030,11 @@ class Pool:
             raise ValueError("The LFU cache expects an integer, None or bool.")
 
         cls.__cache = LFUCache(capacity=capacity)
+    
+    @classmethod
+    def node_selection_strategy(cls , strategy : NodeSelectionStrategy) -> None:
+        cls.__node_selection_strategy = strategy
+            
 
     @classmethod
     def has_cache(cls) -> bool:
