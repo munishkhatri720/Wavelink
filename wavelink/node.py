@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import secrets
 import urllib.parse
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias , Callable , Union
 
 import aiohttp
 from discord.utils import classproperty
@@ -926,13 +926,15 @@ class Pool:
             raise InvalidNodeException("No nodes are currently assigned to the wavelink.Pool in a CONNECTED state.")
           
         if cls.__node_selection_strategy == NodeSelectionStrategy.prioritize_total_playing:
-            return sorted(nodes , key=lambda n: n._stats.playing if n._stats else len(n.players))[0]
+            key : Callable[[Node] , Union[int , float]]  = lambda n: (n._stats.playing if n._stats else len(n.players))
         
         elif cls.__node_selection_strategy == NodeSelectionStrategy.prioritize_node_penalty:
-            return sorted(nodes , key=lambda n: n.penalty)[0]
+            key : Callable[[Node], Union[int , float]] = lambda n: n.penalty
         
-        else: 
-            return sorted(nodes, key=lambda n: n._stats.players if n._stats else len(n.players))[0]
+        else:
+            key : Callable[[Node] , Union[int , float]] = lambda n: (n._stats.players if n._stats else len(n.players))
+    
+        return min(nodes, key=key)
 
     @classmethod
     async def fetch_tracks(cls, query: str, /, *, node: Node | None = None) -> list[Playable] | Playlist:
