@@ -311,6 +311,7 @@ class StatsEventPayload:
 
         if frames := data.get("frameStats", None):
             self.frames = StatsEventFrames(frames)
+            
 
 
 class StatsResponsePayload:

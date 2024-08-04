@@ -190,7 +190,8 @@ class Websocket:
 
             elif data["op"] == "stats":
                 statspayload: StatsEventPayload = StatsEventPayload(data=data)
-                self.node._total_player_count = statspayload.players
+                #self.node._total_player_count = statspayload.players
+                self.node._stats = statspayload
                 self.dispatch("stats_update", statspayload)
 
             elif data["op"] == "event":

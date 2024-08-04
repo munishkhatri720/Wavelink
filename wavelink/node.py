@@ -33,7 +33,7 @@ import aiohttp
 from discord.utils import classproperty
 
 from . import __version__
-from .enums import NodeStatus
+from .enums import NodeStatus , NodeSelectionStrategy
 from .exceptions import (
     AuthorizationFailedException,
     InvalidClientException,
@@ -162,6 +162,8 @@ class Node:
 
         self._players: dict[int, Player] = {}
         self._total_player_count: int | None = None
+        
+        self._stats : StatsEventPayload | None = None
 
         self._spotify_enabled: bool = False
 
@@ -273,6 +275,26 @@ class Node:
         .. versionadded:: 3.0.0
         """
         return self._session_id
+    
+    @property
+    def penalty(self) -> float:
+        """Returns the load-balancing penalty for this node."""
+        
+        if not self._stats or self._has_closed:
+            return 9e30
+        player_penalty = self._stats.playing
+        cpu_penalty = 1.05 ** (100 * self._stats.cpu.system_load) * 10 - 10
+        null_frame_penalty = 0
+        deficit_frame_penalty = 0
+        if self._stats.frames:
+            if self._stats.frames.deficit != -1:
+                deficit_frame_penalty = (1.03 ** (500 * (self._stats.frames.deficit / 3000))) * 600 - 600
+            
+            if self._stats.frames.nulled != -1:
+                null_frame_penalty = (1.03 ** (500 * (self._stats.frames.nulled / 3000))) * 300 - 300
+                null_frame_penalty *=2
+                    
+        return player_penalty + cpu_penalty + null_frame_penalty + deficit_frame_penalty
 
     async def _pool_closer(self) -> None:
         try:
@@ -747,10 +769,12 @@ class Pool:
 
     __nodes: ClassVar[dict[str, Node]] = {}
     __cache: LFUCache | None = None
+    __node_selection_strategy: NodeSelectionStrategy | None = None
 
     @classmethod
     async def connect(
-        cls, *, nodes: Iterable[Node], client: discord.Client | None = None, cache_capacity: int | None = None
+        cls, *, nodes: Iterable[Node], client: discord.Client | None = None, cache_capacity: int | None = None,
+        node_selection_strategy: NodeSelectionStrategy | None = None
     ) -> dict[str, Node]:
         """Connect the provided Iterable[:class:`Node`] to Lavalink.
 
@@ -764,12 +788,13 @@ class Pool:
         cache_capacity: int | None
             An optional integer of the amount of track searches to cache. This is an experimental mode.
             Passing ``None`` will disable this experiment. Defaults to ``None``.
+        node_selection_strategy: :class:`NodeSelectionStrategy` | None
+            Strategy to use when selecting nodes. If `None`, the default strategy is used.
 
         Returns
         -------
         dict[str, :class:`Node`]
             A mapping of :attr:`Node.identifier` to :class:`Node` associated with the :class:`Pool`.
-
 
         Raises
         ------
@@ -780,9 +805,7 @@ class Pool:
         NodeException
             The node failed to connect properly. Please check that your Lavalink version is version 4.
 
-
         .. versionchanged:: 3.0.0
-
             The ``client`` parameter is no longer required.
             Added the ``cache_capacity`` parameter.
         """
@@ -792,7 +815,6 @@ class Pool:
             if node.identifier in cls.__nodes:
                 msg: str = f'Unable to connect {node!r} as you already have a node with identifier "{node.identifier}"'
                 logger.error(msg)
-
                 continue
 
             if node.status in (NodeStatus.CONNECTING, NodeStatus.CONNECTED):
@@ -813,15 +835,20 @@ class Pool:
             else:
                 cls.__nodes[node.identifier] = node
 
-        if cache_capacity is not None and cls.nodes:
+        if cache_capacity is not None and cls.__nodes:
             if cache_capacity <= 0:
                 logger.warning("LFU Request cache capacity must be > 0. Not enabling cache.")
-
             else:
                 cls.__cache = LFUCache(capacity=cache_capacity)
                 logger.info("Experimental request caching has been toggled ON. To disable run Pool.toggle_cache()")
+        
+        if node_selection_strategy is not None:
+            cls.__node_selection_strategy = node_selection_strategy
+            logger.info(f"Node selection strategy set to {node_selection_strategy.name}")
+        else:
+            logger.warning(f"Falling back the node selection startegy to {NodeSelectionStrategy.prioritize_total_players.name}")    
 
-        return cls.nodes
+        return cls.__nodes
 
     @classmethod
     async def reconnect(cls) -> dict[str, Node]:
@@ -897,8 +924,15 @@ class Pool:
         nodes: list[Node] = [n for n in cls.__nodes.values() if n.status is NodeStatus.CONNECTED]
         if not nodes:
             raise InvalidNodeException("No nodes are currently assigned to the wavelink.Pool in a CONNECTED state.")
-
-        return sorted(nodes, key=lambda n: n._total_player_count or len(n.players))[0]
+          
+        if cls.__node_selection_strategy == NodeSelectionStrategy.prioritize_total_playing:
+            return sorted(nodes , key=lambda n: n._stats.playing if n._stats else len(n.players))[0]
+        
+        elif cls.__node_selection_strategy == NodeSelectionStrategy.prioritize_node_penalty:
+            return sorted(nodes , key=lambda n: n.penalty)[0]
+        
+        else: 
+            return sorted(nodes, key=lambda n: n._stats.players if n._stats else len(n.players))[0]
 
     @classmethod
     async def fetch_tracks(cls, query: str, /, *, node: Node | None = None) -> list[Playable] | Playlist:

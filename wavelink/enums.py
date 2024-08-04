@@ -148,3 +148,20 @@ class QueueMode(enum.Enum):
     normal = 0
     loop = 1
     loop_all = 2
+
+class NodeSelectionStrategy(enum.Enum):
+    """
+    Enum representing the various strategies for selecting a node for a player.
+
+    Attributes
+    ----------
+    prioritize_total_players: int
+        Strategy that prioritizes nodes based on the total number of players.
+    prioritize_total_playing: int
+        Strategy that prioritizes nodes based on the number of players currently playing.
+    prioritize_node_penalty: int
+        Strategy that prioritizes nodes based on their load-balancing penalty.
+    """
+    prioritize_total_players = 0
+    prioritize_total_playing = 1
+    prioritize_node_penalty = 2
