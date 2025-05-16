@@ -73,7 +73,8 @@ class Websocket:
 
         if self.node.session_id:
             data["Session-Id"] = self.node.session_id
-
+        
+        print(data)
         return data
 
     def is_connected(self) -> bool:
@@ -161,6 +162,7 @@ class Websocket:
                 message: aiohttp.WSMessage = await asyncio.wait_for(self.socket.receive() , timeout=30.0)
             except asyncio.TimeoutError:
                 logger.error(f"Websocket recieve timed out : [Socket Closed : {self.socket.closed}]")  
+                await self.socket.close(code=1000)
                 asyncio.create_task(self.connect())
                 break  
 
