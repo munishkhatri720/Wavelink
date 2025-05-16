@@ -114,6 +114,7 @@ class Websocket:
 
         while True:
             try:
+                logger.info("Trying to connect the websocket : %s" , uri)
                 self.socket = await session.ws_connect(url=uri, heartbeat=heartbeat, headers=self.headers)  # type: ignore
             except Exception as e:
                 if isinstance(e, aiohttp.WSServerHandshakeError) and e.status == 401:
@@ -156,7 +157,12 @@ class Websocket:
         assert self.socket is not None
 
         while True:
-            message: aiohttp.WSMessage = await self.socket.receive()
+            try:
+                message: aiohttp.WSMessage = await asyncio.wait_for(self.socket.receive() , timeout=30.0)
+            except asyncio.TimeoutError:
+                logger.error(f"Websocket recieve timed out : [Socket Closed : {self.socket.closed}]")  
+                asyncio.create_task(self.connect())
+                break  
 
             if message.type in (  # pyright: ignore[reportUnknownMemberType]
                 aiohttp.WSMsgType.CLOSED,
