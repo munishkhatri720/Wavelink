@@ -377,7 +377,8 @@ class Player(discord.VoiceProtocol):
 
         if spotify:
             spotify_seeds: list[str] = spotify[:3]
-            spotify_query = f"sprec:seed_tracks={','.join(spotify_seeds)}&limit=10"
+            spotify_query = f"sprec:mix:track:{spotify_seeds[0]}"
+            #spotify_query = f"sprec:seed_tracks={','.join(spotify_seeds)}&limit=10"
 
             for s_seed in spotify_seeds:
                 self._add_to_previous_seeds(s_seed)

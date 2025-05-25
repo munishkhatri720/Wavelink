@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 
 try:
-    import orjson as json  # type: ignore
+    import orjson as json  
 except ImportError:
     import json
 import logging
