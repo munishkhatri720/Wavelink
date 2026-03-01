@@ -774,7 +774,7 @@ class Player(discord.VoiceProtocol):
             return
 
         self._connected = True
-
+        self._voice_state["channel_id"] = str(channel_id)
         self._voice_state["voice"]["session_id"] = data["session_id"]
         self.channel = self.client.get_channel(int(channel_id))  # type: ignore
 
@@ -791,11 +791,12 @@ class Player(discord.VoiceProtocol):
         session_id: str | None = data.get("session_id", None)
         token: str | None = data.get("token", None)
         endpoint: str | None = data.get("endpoint", None)
+        channel_id: str | None = self._voice_state.get("channel_id", None)
 
         if not session_id or not token or not endpoint:
             return
 
-        request: RequestPayload = {"voice": {"sessionId": session_id, "token": token, "endpoint": endpoint}}
+        request: RequestPayload = {"voice": {"sessionId": session_id, "token": token, "endpoint": endpoint , "channelId" : channel_id}}
 
         try:
             await self.node._update_player(self.guild.id, data=request)
